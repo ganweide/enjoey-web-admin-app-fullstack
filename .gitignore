@@ -2,6 +2,7 @@
 
 # dependencies
 /enjoey-web-starter/node_modules
+enjoey_database/.env
 /enjoeyvenv
 .DS_Store
 
@@ -26,4 +27,3 @@ package-lock.json
 yarn.lock
 
 commit.sh
-enjoey_database/.env
