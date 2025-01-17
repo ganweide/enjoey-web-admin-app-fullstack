@@ -137,7 +137,7 @@ WSGI_APPLICATION = 'enjoey_database.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'enjoey-web-starter',
+        'NAME': 'enjoey-web-admin-app-fullstack',
         'USER': 'postgres',
         'PASSWORD': 'admin',
         'HOST': '127.0.0.1',

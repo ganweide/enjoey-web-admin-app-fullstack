@@ -150,7 +150,6 @@ const TipTapEditor = () => {
 
   // Configure AWS with your access key and secret access key
 
-
   // Create a new instance of the S3 class
   const s3 = new AWS.S3();
 

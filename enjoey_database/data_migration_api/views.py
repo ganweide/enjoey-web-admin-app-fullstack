@@ -1,15 +1,19 @@
 from rest_framework import status
-from .models import ChildrenTempTable, CoreServiceChildren, CoreServiceFamily, CoreServiceChildrenMedicalContact, CoreServiceChildrenAllergies, CoreServiceClassrooms, CoreServiceChildrenEnrollment, StaffTempTable
+from .models import ChildrenTempTable, CoreServiceChildren, CoreServiceFamily, CoreServiceChildrenMedicalContact, CoreServiceChildrenAllergies, CoreServiceClassrooms, CoreServiceChildrenEnrollment, StaffTempTable, Staff, App_user, Branch_users
+from enjoey_api.models import BranchTable
 from .serializers import ChildrenTempTableSerializer, CoreServiceChildrenTableSerializer, CoreServiceChildrenMedicalContactTableSerializer, CoreServiceChildrenAllergiesTableSerializer, CoreServiceChildrenEnrollmentTableSerializer, CoreServiceFamilyTableSerializer, CoreServiceClassroomsTableSerializer, StaffTempTableSerializer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.decorators import api_view
 from rest_framework import status
 import csv
 import datetime
 from datetime import datetime
 from django.db.models import Max
 from openpyxl import load_workbook
+from django.db import transaction
+from .functions import get_staff_profile_image, generate_random_cognito_password, create_cognito_user
 
 class UploadChildrenCSVData(APIView):
     def get(self, request, *args, **kwargs):
@@ -759,3 +763,137 @@ class UploadStaffCSVData(APIView):
         
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class CreateTenantStaff(APIView):
+    def post(self, request):
+    # authenticated_user: TokenUser = request.user
+    # print('request.data', request.POST)
+    # if authenticated_user:
+        try:
+            success_count = 0
+            error_records = []
+            with transaction.atomic():
+                temp_staff_records = StaffTempTable.objects.all()
+                for temp_record in temp_staff_records:
+                    try: 
+                        if Staff.objects.filter(email=temp_record.email, staffNRIC=temp_record.staffNRIC).exists():
+                                error_records.append({
+                                    "firstName": temp_record.firstName,
+                                    "lastName": temp_record.lastName,
+                                    "staffNRIC": temp_record.staffNRIC,
+                                    "error": "Duplicate staff record found."
+                                })
+                                continue
+                        
+                        # branch = Branch.objects.filter(name=temp_record.branchName).first()
+                        # if not branch:
+                        #     raise ValueError(f"Branch with name '{temp_record.branchName}' does not exist.")
+                        
+                        # classrooms = ClassRooms.objects.filter(
+                        #     className=temp_record.className,
+                        #     tenantId=temp_record.schoolName,
+                        #     branchId=branch.id,
+                        #     academicYear=temp_record.academicYear
+                        # )
+                        # if not classrooms.exists():
+                        #     raise ValueError(f"No classroom found for className: '{temp_record.className}', "
+                        #                     f"tenantId: '{temp_record.schoolName}', academicYear: '{temp_record.academicYear}'.")
+                        
+                        staff_model = Staff()
+                        staff_model.tenantId = temp_record.schoolName
+                        # staff_model.branchId = branch.id
+                        staff_model.branchId = temp_record.branchName
+                        staff_model.email = temp_record.email
+                        staff_model.firstName = temp_record.firstName
+                        staff_model.lastName = temp_record.lastName
+                        staff_model.phone = temp_record.phone
+                        staff_model.staffNRIC = temp_record.staffNRIC
+                        staff_model.birthCountry = temp_record.birthCountry
+                        staff_model.role = temp_record.role
+                        staff_model.dob = temp_record.dob
+                        staff_model.doj = temp_record.doj
+                        staff_model.isExternal = temp_record.isExternal
+                        staff_model.gender = temp_record.gender
+                        staff_model.address = temp_record.address
+                        staff_model.state = temp_record.state
+                        staff_model.country = temp_record.country
+                        staff_model.postcode = temp_record.postcode
+                        staff_model.isActive = True
+                        staff_model.isWebAccess = temp_record.isWebAccess
+                        staff_model.isMobileAccess = temp_record.isMobileAccess
+                        staff_model.creator = request.user
+                        staff_model.profileImage=temp_record.profileImage if temp_record.profileImage else None
+                        staff_model.save()
+                        
+                        app_user_model = App_user()
+                        app_user_model.tenantId=staff_model.tenantId
+                        app_user_model.email=staff_model.email
+                        app_user_model.phone=staff_model.phone
+                        app_user_model.firstName=staff_model.firstName
+                        app_user_model.lastName=staff_model.lastName
+                        app_user_model.roles=[staff_model.role]
+                        app_user_model.isActive=True
+                        app_user_model.created_by=request.user.id
+                        app_user_model.save()
+
+                        # Link App_user to Staff record
+                        staff_model.userId = app_user_model.id
+                        staff_model.isWebAccess = True
+                        staff_model.save()
+                        
+                        # temp_password = generate_random_cognito_password()
+                        # profile_image_url = get_staff_profile_image(staff_model)
+                        # cognito_response = create_cognito_user(authenticated_user, app_user_model, temp_password, profile_image_url)
+
+                        # if cognito_response.get('User'):
+                        #     app_user_model.tempPassword = temp_password
+                        #     app_user_model.save()
+                        # else:
+                        #     raise Exception(f"Failed to create Cognito user for staff: {staff.email}")
+                        
+                        # for classroom in classrooms:
+                        #     classroom_staff = Classroom_staff()
+                        #     classroom_staff.staff=staff_model
+                        #     classroom_staff.classroom=classroom
+                        #     classroom_staff.academicYear=temp_record.academicYear
+                        #     classroom_staff.isPrimary=temp_record.isPrimary
+                        #     classroom_staff.isActive=True
+                        #     classroom_staff.save()
+                        
+                        # if staff_model.role in ['admin', 'management']:
+                        #     branches = BranchTable.objects.filter(tenant_id=staff_model.tenantId)
+                        #     for branch in branches:
+                        #         branch_user = Branch_users()
+                        #         branch_user.tenantId = staff_model.tenantId
+                        #         branch_user.branch = branch
+                        #         branch_user.user = app_user_model
+                        #         branch_user.creator = request.user.id
+                        #         branch_user.save()
+                        # else:
+                        #     branch = BranchTable.objects.filter(name=temp_record.branchName, tenant_id=staff_model.tenantId).first()
+                        #     if not branch:
+                        #         raise ValueError(f"Branch with name '{temp_record.branchName}' does not exist.")
+                        #     branch_user = Branch_users()
+                        #     branch_user.tenantId = staff_model.tenantId
+                        #     branch_user.branch = branch
+                        #     branch_user.user = app_user_model
+                        #     branch_user.creator = request.user.id
+                        #     branch_user.save()
+                        
+                        success_count += 1
+
+                    except Exception as inner_error:
+                        error_records.append({
+                            "firstName": temp_record.firstName,
+                            "lastName": temp_record.lastName,
+                            "staffNRIC": temp_record.staffNRIC,
+                            "error": str(inner_error)
+                        })
+                    
+                temp_staff_records.delete()
+                
+            return Response({'message': 'Staff data successfully created.', 'success_count': success_count, 'errors': error_records}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(e)
+            return Response({'message': str(e)}, status=status.HTTP_404_NOT_FOUND)

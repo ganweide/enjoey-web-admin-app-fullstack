@@ -1,4 +1,8 @@
 from django.db import models
+import uuid
+from django.contrib.postgres.fields import ArrayField
+from django.utils import timezone
+from enjoey_api.models import BranchTable
 from .storagebackend import ImageStorage
 
 class ChildrenTempTable(models.Model):
@@ -286,7 +290,6 @@ class StaffTempTable(models.Model):
     migrationStatus = models.CharField(max_length=250, null=True)
     migrationRemark = models.CharField(max_length=250, null=True)
 
-
 class Staff(models.Model):
     tenantId = models.CharField(max_length=250)
     branchId = models.BigIntegerField()
@@ -320,6 +323,41 @@ class Staff(models.Model):
     isArchived = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+class App_user(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    email = models.EmailField(db_index=True, unique=True, max_length=254)
+    name = models.CharField(max_length=250)
+    phone = models.CharField(db_index=True, unique=True, max_length=20)
+    gender = models.CharField(max_length=20)
+    isStaff = models.BooleanField(default=True)
+    isActive = models.BooleanField(default=True)
+    isSuperuser = models.BooleanField(default=False)
+    isFamily = models.BooleanField(default=False)
+    lastLogin = models.DateTimeField(null=True)
+    roles = ArrayField(models.CharField(max_length=100), blank=True)
+    tempPassword = models.CharField(max_length=50, null=True)
+    resetTempPwd = models.BooleanField(default=False)
+    cognitoEnabled = models.BooleanField(default=False)
+    isCognitoUser = models.BooleanField(default=False)
+    sendEmail = models.BooleanField(default=False)
+    sendEmailAt = models.DateTimeField(
+        default=timezone.now, blank=True)
+    createdAt = models.DateTimeField(
+        default=timezone.now, blank=True)
+    updatedAt = models.DateTimeField(
+        default=timezone.now, blank=True)
+    
+    def save(self, *args, **kwargs):
+        self.email = self.email.lower().strip()
+        super(App_user, self).save(*args, **kwargs)
+
+class Branch_users(models.Model):
+    tenantId = models.CharField(max_length=250)
+    branch = models.ForeignKey(BranchTable, on_delete=models.CASCADE)
+    user = models.ForeignKey(App_user, on_delete=models.CASCADE)
+    status = models.CharField(max_length=50, default='enabled')
+    creator = models.CharField(max_length=250, editable=False)
 
 class Programs(models.Model):
     tenantId = models.CharField(max_length=250)

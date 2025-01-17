@@ -166,6 +166,20 @@ const Page2 = () => {
     }
   };
 
+  const handleClickConfirm = async () => {
+    try {
+      const response = await Axios.post('http://127.0.0.1:8000/api/data_migration/create-tenant-staff/');
+      if (response.status === 200) {
+        setOpenStatusDialog(false);
+      } else {
+        alert('GG.com')
+      }
+    } catch (error) {
+      console.error('Error creating tenant staff:', error);
+      alert('An error occurred. Please try again.');
+    }
+  };
+
   return (
     <Box>
       <Grid container spacing={2}>
@@ -256,6 +270,9 @@ const Page2 = () => {
             </Grid>
         </DialogContent>
         <DialogActions>
+          {(!uploadResults.errors || uploadResults.errors.length === 0) && (
+            <Button onClick={handleClickConfirm}>Confirm</Button>
+          )}
           <Button onClick={() => setOpenStatusDialog(false)}>Close</Button>
         </DialogActions>
       </Dialog>
